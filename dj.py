@@ -138,7 +138,7 @@ def apply_gate_spec(state, spec):
 
 # --- Pretty-print the circuit ---
 
-def print_circuit(circuit, ascii_ket=True):
+def print_circuit(circuit, ascii_ket=False):
     """
     For 2 wires, output example:
 
@@ -147,6 +147,7 @@ def print_circuit(circuit, ascii_ket=True):
     [PU] ∣00⟩ [X1] ∣01⟩ [H0] ∣11⟩ [H1] ∣11⟩ [CX01] ∣10⟩ [H0] ∣10⟩ : [Balanced]
     """
     # Choose delimiters for ket formatting
+    # Always prefer Unicode kets unless explicitly overridden
     if ascii_ket:
         left, right = '|', '>'
     else:
@@ -157,15 +158,14 @@ def print_circuit(circuit, ascii_ket=True):
     sym_tokens = [f"{gate} {left}{''.join(state)}{right}" for _, gate, state, _ in circuit]
     bit_tokens = [f"{gate} {left}{''.join(str(b) for b in bits)}{right}" for _, gate, _, bits in circuit]
 
-    # Choose a single column width that fits headers and both rows
-    col_width = max(
-        max(len(lbl) for lbl in step_labels),
-        max(len(tok) for tok in sym_tokens),
-        max(len(tok) for tok in bit_tokens),
-    ) + 1  # add a little spacing
+    # Fixed-width layout per spec:
+    # - 8-char columns when CX label is "[CX]"
+    # - 10-char columns when CX includes indices like "[CX01]"
+    has_cx_with_indices = any(gate.startswith('[CX') and len(gate) > 4 for _, gate, _, _ in circuit)
+    col_width = 10 if has_cx_with_indices else 8
 
-    # Render lines with consistent column widths
-    header = " ".join(f"{lbl:^{col_width}}" for lbl in step_labels)
+    # Right-align cells within each column width; headers right-aligned too
+    header = " ".join(f"{lbl:>{col_width}}" for lbl in step_labels)
     sym_line = " ".join(f"{tok:>{col_width}}" for tok in sym_tokens)
     bit_line = " ".join(f"{tok:>{col_width}}" for tok in bit_tokens)
 

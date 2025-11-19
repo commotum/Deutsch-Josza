@@ -64,8 +64,8 @@ def apply_CX(state, c_wire, t_wire):
     new_state[c_wire] = new_m
     new_state[t_wire] = new_n
 
-    # Display label: keep it concise as "[CX]" (no indices) for layout
-    gate_label = "[CX]"
+    # Display label with wire indices, e.g., [CX01]
+    gate_label = f"[CX{c_wire}{t_wire}]"
     return gate_label, new_state
 
 # --- Power-up (initialize all wires) ---
@@ -162,10 +162,17 @@ def print_circuit(circuit, ascii_ket=False):
     # Header spacing per spec:
     # - 6 initial spaces, then 8 spaces between each step label
     # - if any CX gate includes indices (e.g., "[CX01]"), use 10 spaces instead
-    has_cx_with_indices = any(gate.startswith('[CX') and len(gate) > 4 for _, gate, _, _ in circuit)
-    spacing = 10 if has_cx_with_indices else 8
+    # Build header with 6 initial spaces, then per-step gaps:
+    # - 8 spaces before a step by default
+    # - 10 spaces before a step if that step's gate is an indexed CX like "[CX01]"
+    gates_for_steps = [gate for _, gate, _, _ in circuit]
+    per_step_gap = [10 if (g.startswith('[CX') and len(g) > 4) else 8 for g in gates_for_steps]
 
-    header = (" " * 6) + ((" " * spacing).join(step_labels))
+    header_parts = [" " * 6, step_labels[0]]
+    for i in range(1, len(step_labels)):
+        header_parts.append(" " * per_step_gap[i])
+        header_parts.append(step_labels[i])
+    header = "".join(header_parts)
 
     # Token rows separated by single spaces to match example
     sym_line = " ".join(sym_tokens)

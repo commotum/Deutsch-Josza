@@ -64,7 +64,8 @@ def apply_CX(state, c_wire, t_wire):
     new_state[c_wire] = new_m
     new_state[t_wire] = new_n
 
-    gate_label = f"[CX{c_wire}{t_wire}]"
+    # Display label: keep it concise as "[CX]" (no indices) for layout
+    gate_label = "[CX]"
     return gate_label, new_state
 
 # --- Power-up (initialize all wires) ---
@@ -158,16 +159,17 @@ def print_circuit(circuit, ascii_ket=False):
     sym_tokens = [f"{gate} {left}{''.join(state)}{right}" for _, gate, state, _ in circuit]
     bit_tokens = [f"{gate} {left}{''.join(str(b) for b in bits)}{right}" for _, gate, _, bits in circuit]
 
-    # Fixed-width layout per spec:
-    # - 8-char columns when CX label is "[CX]"
-    # - 10-char columns when CX includes indices like "[CX01]"
+    # Header spacing per spec:
+    # - 6 initial spaces, then 8 spaces between each step label
+    # - if any CX gate includes indices (e.g., "[CX01]"), use 10 spaces instead
     has_cx_with_indices = any(gate.startswith('[CX') and len(gate) > 4 for _, gate, _, _ in circuit)
-    col_width = 10 if has_cx_with_indices else 8
+    spacing = 10 if has_cx_with_indices else 8
 
-    # Right-align cells within each column width; headers right-aligned too
-    header = " ".join(f"{lbl:>{col_width}}" for lbl in step_labels)
-    sym_line = " ".join(f"{tok:>{col_width}}" for tok in sym_tokens)
-    bit_line = " ".join(f"{tok:>{col_width}}" for tok in bit_tokens)
+    header = (" " * 6) + ((" " * spacing).join(step_labels))
+
+    # Token rows separated by single spaces to match example
+    sym_line = " ".join(sym_tokens)
+    bit_line = " ".join(bit_tokens)
 
     # Overall classification from final bits: all same => Constant, else Balanced
     _, _, _, final_bits = circuit[-1]

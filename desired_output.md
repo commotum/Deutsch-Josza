@@ -6,6 +6,6 @@ current output:
 
 desired output:
 
-      00        01        02        03        04        05
-[PU] ∣DD⟩ [X1] ∣DC⟩ [H0] ∣BC⟩ [H1] ∣BC⟩ [CX] ∣CD⟩ [H0] ∣CD⟩
-[PU] ∣00⟩ [X1] ∣01⟩ [H0] ∣11⟩ [H1] ∣11⟩ [CX] ∣10⟩ [H0] ∣10⟩ : [Balanced]
+      00        01        02        03          04        05
+[PU] ∣DD⟩ [X1] ∣DC⟩ [H0] ∣BC⟩ [H1] ∣BC⟩ [CX01] ∣CD⟩ [H0] ∣CD⟩
+[PU] ∣00⟩ [X1] ∣01⟩ [H0] ∣11⟩ [H1] ∣11⟩ [CX01] ∣10⟩ [H0] ∣10⟩ : [Balanced]

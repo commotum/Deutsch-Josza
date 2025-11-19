@@ -52,17 +52,14 @@ def apply_CX(state, c_wire, t_wire):
     m = new_state[c_wire]
     n = new_state[t_wire]
 
-    # Your CX rules in (m, n) form
-    if m in ('B', 'C') and n in ('C', 'D'):
-        new_m, new_n = Z_symbol(m), X_symbol(n)
-    elif m in ('B', 'C') and n in ('A', 'B'):
-        new_m, new_n = m, X_symbol(n)
-    elif m in ('A', 'D') and n in ('C', 'D'):
-        new_m, new_n = Z_symbol(m), n
-    elif m in ('A', 'D') and n in ('A', 'B'):
-        new_m, new_n = m, n
-    else:
-        raise ValueError(f"Invalid symbols m={m}, n={n}")
+    # Two-condition form:
+    # - Control (m) gets Z if target (n) ∈ {C, D}
+    # - Target (n) gets X if control (m) ∈ {B, C}
+    new_m, new_n = m, n
+    if n in ('C', 'D'):
+        new_m = Z_symbol(m)
+    if m in ('B', 'C'):
+        new_n = X_symbol(n)
 
     new_state[c_wire] = new_m
     new_state[t_wire] = new_n
@@ -141,7 +138,7 @@ def apply_gate_spec(state, spec):
 
 # --- Pretty-print the circuit ---
 
-def print_circuit(circuit):
+def print_circuit(circuit, ascii_ket=True):
     """
     For 2 wires, output example:
 
@@ -149,25 +146,28 @@ def print_circuit(circuit):
     [PU] ∣DD⟩ [X1] ∣DC⟩ [H0] ∣BC⟩ [H1] ∣BC⟩ [CX01] ∣CD⟩ [H0] ∣CD⟩
     [PU] ∣00⟩ [X1] ∣01⟩ [H0] ∣11⟩ [H1] ∣11⟩ [CX01] ∣10⟩ [H0] ∣10⟩ : [Balanced]
     """
-    # Header line with step numbers
+    # Choose delimiters for ket formatting
+    if ascii_ket:
+        left, right = '|', '>'
+    else:
+        left, right = '∣', '⟩'
+
+    # Build raw tokens for each step
     step_labels = [f"{step:02d}" for step, _, _, _ in circuit]
-    header = " ".join(f"{lbl:>8}" for lbl in step_labels)
+    sym_tokens = [f"{gate} {left}{''.join(state)}{right}" for _, gate, state, _ in circuit]
+    bit_tokens = [f"{gate} {left}{''.join(str(b) for b in bits)}{right}" for _, gate, _, bits in circuit]
 
-    # Line of symbolic states
-    sym_tokens = []
-    for _, gate, state, _ in circuit:
-        ket = "".join(state)
-        token = f"{gate} ∣{ket}⟩"
-        sym_tokens.append(f"{token:>8}")
-    sym_line = " ".join(sym_tokens)
+    # Choose a single column width that fits headers and both rows
+    col_width = max(
+        max(len(lbl) for lbl in step_labels),
+        max(len(tok) for tok in sym_tokens),
+        max(len(tok) for tok in bit_tokens),
+    ) + 1  # add a little spacing
 
-    # Line of bitwise states
-    bit_tokens = []
-    for _, gate, _, bits in circuit:
-        ket = "".join(str(b) for b in bits)
-        token = f"{gate} ∣{ket}⟩"
-        bit_tokens.append(f"{token:>8}")
-    bit_line = " ".join(bit_tokens)
+    # Render lines with consistent column widths
+    header = " ".join(f"{lbl:^{col_width}}" for lbl in step_labels)
+    sym_line = " ".join(f"{tok:>{col_width}}" for tok in sym_tokens)
+    bit_line = " ".join(f"{tok:>{col_width}}" for tok in bit_tokens)
 
     # Overall classification from final bits: all same => Constant, else Balanced
     _, _, _, final_bits = circuit[-1]

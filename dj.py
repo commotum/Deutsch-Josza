@@ -1,4 +1,6 @@
 import random
+from dataclasses import dataclass
+from typing import Callable, List, Tuple
 
 # --- Bitwise mapping (symbol -> 0/1) ---
 
@@ -20,53 +22,62 @@ def Z_symbol(s):
     mapping = {'A': 'D', 'B': 'C', 'C': 'B', 'D': 'A'}
     return mapping[s]
 
-# --- Multi-wire gate helpers (operate on the whole state list) ---
+# --- Gate registry (declarative gate behavior) ---
 
-def apply_H(state, wire):
-    """Apply H to a specific wire index."""
+@dataclass(frozen=True)
+class GateSpec:
+    name: str
+    arity: int
+    label: Callable[[Tuple[int, ...]], str]
+    apply: Callable[[List[str], Tuple[int, ...]], List[str]]
+
+
+def _apply_single(state: List[str], wire: int, transform: Callable[[str], str]) -> List[str]:
     new_state = state.copy()
-    new_state[wire] = H_symbol(new_state[wire])
-    gate_label = f"[H{wire}]"
-    return gate_label, new_state
+    new_state[wire] = transform(new_state[wire])
+    return new_state
 
-def apply_X(state, wire):
-    """Apply X to a specific wire index."""
-    new_state = state.copy()
-    new_state[wire] = X_symbol(new_state[wire])
-    gate_label = f"[X{wire}]"
-    return gate_label, new_state
 
-def apply_Z(state, wire):
-    """Apply Z to a specific wire index."""
-    new_state = state.copy()
-    new_state[wire] = Z_symbol(new_state[wire])
-    gate_label = f"[Z{wire}]"
-    return gate_label, new_state
-
-def apply_CX(state, c_wire, t_wire):
-    """
-    Controlled-X-like two-wire gate using your 4-ary rule:
-    control = m, target = n
-    """
+def _apply_cx(state: List[str], c_wire: int, t_wire: int) -> List[str]:
     new_state = state.copy()
     m = new_state[c_wire]
     n = new_state[t_wire]
 
     # Two-condition form:
-    # - Control (m) gets Z if target (n) ∈ {C, D}
-    # - Target (n) gets X if control (m) ∈ {B, C}
-    new_m, new_n = m, n
     if n in ('C', 'D'):
-        new_m = Z_symbol(m)
+        new_state[c_wire] = Z_symbol(m)
     if m in ('B', 'C'):
-        new_n = X_symbol(n)
+        new_state[t_wire] = X_symbol(n)
 
-    new_state[c_wire] = new_m
-    new_state[t_wire] = new_n
+    return new_state
 
-    # Display label with wire indices, e.g., [CX01]
-    gate_label = f"[CX{c_wire}{t_wire}]"
-    return gate_label, new_state
+
+GATES = {
+    'H': GateSpec(
+        name='H',
+        arity=1,
+        label=lambda wires: f"[H{wires[0]}]",
+        apply=lambda state, wires: _apply_single(state, wires[0], H_symbol),
+    ),
+    'X': GateSpec(
+        name='X',
+        arity=1,
+        label=lambda wires: f"[X{wires[0]}]",
+        apply=lambda state, wires: _apply_single(state, wires[0], X_symbol),
+    ),
+    'Z': GateSpec(
+        name='Z',
+        arity=1,
+        label=lambda wires: f"[Z{wires[0]}]",
+        apply=lambda state, wires: _apply_single(state, wires[0], Z_symbol),
+    ),
+    'CX': GateSpec(
+        name='CX',
+        arity=2,
+        label=lambda wires: f"[CX{wires[0]}{wires[1]}]",
+        apply=lambda state, wires: _apply_cx(state, wires[0], wires[1]),
+    ),
+}
 
 # --- Power-up (initialize all wires) ---
 
@@ -118,24 +129,18 @@ def apply_gate_spec(state, spec):
         gate_label = "[PU]"
         return gate_label, state
 
-    elif op == 'H':
-        _, wire = spec
-        return apply_H(state, wire)
-
-    elif op == 'X':
-        _, wire = spec
-        return apply_X(state, wire)
-
-    elif op == 'Z':
-        _, wire = spec
-        return apply_Z(state, wire)
-
-    elif op == 'CX':
-        _, c_wire, t_wire = spec
-        return apply_CX(state, c_wire, t_wire)
-
-    else:
+    # Registry-driven gates
+    if op not in GATES:
         raise ValueError(f"Unknown gate spec: {spec}")
+
+    gate = GATES[op]
+    wires = tuple(spec[1:])
+    if len(wires) != gate.arity:
+        raise ValueError(f"Gate {op} expects {gate.arity} wires, got {len(wires)}")
+
+    new_state = gate.apply(state, wires)
+    gate_label = gate.label(wires)
+    return gate_label, new_state
 
 # --- Pretty-print the circuit ---
 
@@ -210,4 +215,6 @@ if __name__ == "__main__":
         advance(circuit, gate_label, state)
 
     # Print the final circuit trace
+    print()
     print_circuit(circuit)
+    print()
